@@ -26,12 +26,13 @@ import Loss.Loss as Loss
 class MultiBoxRefinementNetwork:
 	POOL_SIZE=3
 
-	def __init__(self, number, input, nCategories, downsample=16, offset=[32,32], hardMining=True, batch=8):
+	def __init__(self, number, input, nCategories, downsample=16, offset=[32,32], hardMining=True, batch=8, reuse=False):
 		self.downsample = downsample
 		self.offset = offset
+		self.reuse = reuse
 		self.nCategories = nCategories
-		self.classMaps = slim.conv2d(input, (self.POOL_SIZE**2)*(1+nCategories), 3, activation_fn=None, scope='classMaps')
-		self.regressionMap = slim.conv2d(input, (self.POOL_SIZE**2)*4, 3, activation_fn=None, scope='regressionMaps')
+		self.classMaps = slim.conv2d(input, (self.POOL_SIZE**2)*(1+nCategories), 3, activation_fn=None, scope='classMaps', reuse=self.reuse)
+		self.regressionMap = slim.conv2d(input, (self.POOL_SIZE**2)*4, 3, activation_fn=None, scope='regressionMaps',reuse=self.reuse)
 
 		self.batch = batch*2
 		self.classMapsSplit = tf.split(self.classMaps, self.batch, axis=0)

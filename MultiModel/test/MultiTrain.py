@@ -9,9 +9,9 @@ import tensorflow as tf
 import sys
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "6,7,8"
+os.environ["CUDA_VISIBLE_DEVICES"] = "11,12"
 MOVING_AVERAGE_DECAY = 0.99
-num_gpus=3
+num_gpus=2
 gradClip=1
 # def tower_loss(scope, images, labels):
 #     """Calculate the total loss on a single tower running the CIFAR model.
@@ -109,7 +109,7 @@ optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate, epsilon=1e-8)
 # Calculate the gradients for each model tower.
 tower_grads = []
 tower_loss = []
-multi_image = []
+
 net_reuse = False
 with tf.variable_scope(tf.get_variable_scope()):
     for i in range(num_gpus):
@@ -117,14 +117,25 @@ with tf.variable_scope(tf.get_variable_scope()):
             with tf.name_scope('%s_%d' % ("Track", i)) as scope:
               # Dequeues one batch for the GPU
               # images, boxes, classes, number = Augment.MutliAugment(*dataset.get())
+              nas = tf.get_variable_scope()
               images, boxes, classes, number = Augment.MutliAugment(*dataset.get())
               # TODO ?????? init?
               net = MultiBoxInceptionResnet(images, number, 4, name="boxnet", hardMining=False, batch=batch, reuse=net_reuse)
               net_reuse = True
-              multi_image.append(images)
+              tf.get_variable_scope().reuse_variables()
+
+              # scope loss fetch and produce
               loss = net.getLoss(boxes, classes)
               reg_loss = tf.losses.get_regularization_losses(scope)
               total_loss = loss + reg_loss
+              tf.losses.add_loss(total_loss)
+
+              # Assemble all of the losses for the current tower only.
+              losses = tf.get_collection('losses', scope)
+
+              # Calculate the total loss for the current tower.
+              total_loss = tf.add_n(losses, name='total_loss')
+
               # tf.get_variable_scope().reuse_variables()
               grads = optimizer.compute_gradients(total_loss, var_list=net.getVariables())
               if gradClip is not None:
@@ -144,16 +155,16 @@ with tf.variable_scope(tf.get_variable_scope()):
 # synchronization point across all towers.
 grads = average_gradients(tower_grads)
 # 计算变量的滑动平均值。
-variable_averages = tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY, globalStep)
-variables_to_average = (tf.trainable_variables() + tf.moving_average_variables())
-variables_averages_op = variable_averages.apply(variables_to_average)
+# variable_averages = tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY, globalStep)
+# variables_to_average = (tf.trainable_variables() + tf.moving_average_variables())
+# variables_averages_op = variable_averages.apply(variables_to_average)
 # Add histograms for gradients.
 # for grad, var in grads:
 #     if grad is not None:
 #       summaries.append(tf.summary.histogram(var.op.name + '/gradients', grad))
 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 update_ops.append(optimizer.apply_gradients(grads,global_step=globalStep))
-update_ops.append(variables_averages_op)
+# update_ops.append(variables_averages_op)
 train_op = control_flow_ops.with_dependencies([tf.group(*update_ops)], total_loss, name='train_op')
 # Apply the gradients to adjust the shared variables.
 # tf.summary.scalar("loss_t", train_op)
@@ -187,7 +198,7 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, intra_op_parall
 
     while True:
         try:
-            i, ls, tlos, mimage= sess.run([globalStep, train_op, tower_loss, multi_image])
+            i, ls, tlos = sess.run([globalStep, train_op, tower_loss])
         except KeyboardInterrupt:
             print("Keyboard interrupt. Shutting down.")
             sys.exit(0)
@@ -197,7 +208,7 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, intra_op_parall
         print("train_op: ", ls)
         print("total_loss: ", tlos)
         print("GlobalStep: ", i)
-        print("Mu image: ", mimage)
+        # print("Mu image: ", mimage)
         # average = 0
         if i % 10 == 0:
             if cycleCnt > 0:

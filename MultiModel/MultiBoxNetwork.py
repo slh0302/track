@@ -21,7 +21,7 @@ import tensorflow as tf
 class MultiBoxNetwork:
 	def __init__(self, number, nCategories, rpnLayer, rpnDownscale, rpnOffset,
 				 featureLayer=None, featureDownsample=None, featureOffset=None,
-				 weightDecay=1e-6, hardMining=True, batch=8):
+				 weightDecay=1e-6, hardMining=True, batch=8, reuse=False):
 		if featureLayer is None:
 			featureLayer=rpnLayer
 
@@ -32,8 +32,8 @@ class MultiBoxNetwork:
 			rpnOffset=featureOffset
 
 		with tf.name_scope("BoxNetwork"):
-			self.rpn = MultiRPN(number, rpnLayer, immediateSize=512, weightDecay=weightDecay, inputDownscale=rpnDownscale, offset=rpnOffset, batch=batch)
-			self.boxRefiner = MultiBoxRefinementNetwork(number, featureLayer, nCategories, downsample=featureDownsample, offset=featureOffset, hardMining=hardMining,batch=batch)
+			self.rpn = MultiRPN(number, rpnLayer, immediateSize=512, weightDecay=weightDecay, inputDownscale=rpnDownscale, offset=rpnOffset, batch=batch, reuse=reuse)
+			self.boxRefiner = MultiBoxRefinementNetwork(number, featureLayer, nCategories, downsample=featureDownsample, offset=featureOffset, hardMining=hardMining,batch=batch, reuse=reuse)
 
 			self.proposals, self.proposalScores = self.rpn.getPositiveOutputs(maxOutSize=300)
 

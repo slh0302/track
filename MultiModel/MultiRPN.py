@@ -23,11 +23,12 @@ import Loss.Loss as Loss
 import basic.MultiGather as MultiGather
 
 class MultiRPN:
-	def __init__(self, number, input, anchors=None, immediateSize=512, weightDecay=1e-5, inputDownscale=16, offset=[32,32], batch=8):
+	def __init__(self, number, input, anchors=None, immediateSize=512, weightDecay=1e-5, inputDownscale=16, offset=[32,32], batch=8, reuse=False):
 		self.input = input
 		self.anchors = anchors
 		self.inputDownscale = inputDownscale
 		self.offset = offset
+		self.reuse = reuse
 		self.anchors = anchors if anchors is not None else self.makeAnchors([64,128,256,512])
 		print("Anchors: ", self.anchors)
 		self.tfAnchors = tf.constant(self.anchors, dtype=tf.float32)
@@ -64,9 +65,9 @@ class MultiRPN:
 			with slim.arg_scope([slim.conv2d], weights_regularizer=slim.l2_regularizer(weightDecay), padding='SAME'):
 				#box prediction layers
 				with tf.name_scope('NN'):
-					net = slim.conv2d(self.input, immediateSize, 3, activation_fn=tf.nn.relu)
-					scores = slim.conv2d(net, 2*self.nAnchors, 1, activation_fn=None)
-					boxRelativeCoordinates = slim.conv2d(net, 4*self.nAnchors, 1, activation_fn=None)
+					net = slim.conv2d(self.input, immediateSize, 3, activation_fn=tf.nn.relu, reuse=self.reuse )
+					scores = slim.conv2d(net, 2*self.nAnchors, 1, activation_fn=None, reuse=self.reuse)
+					boxRelativeCoordinates = slim.conv2d(net, 4*self.nAnchors, 1, activation_fn=None, reuse=self.reuse)
 
 				#split coordinates
 				x_raw, y_raw, w_raw, h_raw = tf.split(boxRelativeCoordinates, 4, axis=3)
