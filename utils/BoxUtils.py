@@ -133,6 +133,15 @@ def mergeBoxDataList(list):
         res = tf.concat(l2, tf.rank(list[0]))
         return tf.reshape(res, [2, -1, len(list)])
 
+def mergeBoxDataMultiList(list, Mutli):
+    with tf.name_scope('mergeBoxDataList'):
+        l2 = []
+        for l in list:
+            l2.append(tf.expand_dims(l, -1))
+
+        res = tf.concat(l2, tf.rank(list[0]))
+        return tf.reshape(res, [Mutli, -1, len(list)])
+
 
 def mergeCoordinates(x, y, w, h):
     with tf.name_scope('mergeCoordinates'):
@@ -142,6 +151,10 @@ def mergeCoordinatesList(x, y, w, h):
     with tf.name_scope('mergeCoordinates'):
         return mergeBoxDataList(list(xywh_to_x0y0x1y1(x, y, w, h)))
 
+def mergeCoordinatesMultiList(x, y, w, h, mutli):
+    with tf.name_scope('mergeCoordinates'):
+        return mergeBoxDataMultiList(list(xywh_to_x0y0x1y1(x, y, w, h)), mutli)
+
 
 def nnToImageBoxes(x_raw, y_raw, w_raw, h_raw, wA, hA, inputDownscale, offset):
     with tf.name_scope("nnToImageBoxes"):
@@ -150,3 +163,8 @@ def nnToImageBoxes(x_raw, y_raw, w_raw, h_raw, wA, hA, inputDownscale, offset):
 def nnToImageBoxesList(x_raw, y_raw, w_raw, h_raw, wA, hA, inputDownscale, offset):
     with tf.name_scope("nnToImageBoxes"):
         return mergeCoordinatesList(*nnToCenteredBox(x_raw, y_raw, w_raw, h_raw, wA, hA, inputDownscale, offset))
+
+def nnToImageBoxesMultiList(x_raw, y_raw, w_raw, h_raw, wA, hA, inputDownscale, offset, multi):
+    with tf.name_scope("nnToImageBoxes"):
+        x, y, w, h = nnToCenteredBox(x_raw, y_raw, w_raw, h_raw, wA, hA, inputDownscale, offset)
+        return mergeCoordinatesMultiList(x, y, w, h, multi)

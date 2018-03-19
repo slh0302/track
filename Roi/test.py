@@ -1,7 +1,7 @@
 import numpy as np
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "11"
+os.environ["CUDA_VISIBLE_DEVICES"] = "12"
 def test111():
     test = tf.constant([
         [2, 3, 4],
@@ -21,7 +21,8 @@ if __name__ == "__main__":
 
     with tf.Session() as sess:
         tmp = tf.constant([[[2,8],[1,3]],[[1,4],[1,5]], [[2,8],[1,3]]], dtype=tf.float32)
-        tmp1 = tf.constant([[[1, 4],[2, 8],[1,7]],[[2, 5],[3, 9],[3,4]], [[2,8],[1,3],[2,6]]], dtype=tf.float32)
+        tmp1 = tf.constant([[[1, 4],[2, 8]],[[2, 5],[3, 9]], [[2,8],[1,3]]], dtype=tf.float32)
+        tm = tf.constant([1,2,3,1,1])
         yu = [tmp, tmp1]
         # x0, y0, x1, y1 = tf.unstack(tmp1, axis=2)
         # # print(tmp.get_shape().as_list())
@@ -38,29 +39,9 @@ if __name__ == "__main__":
         ])
         a,b = test111()
         c = a[1]
-        print(sess.run([a,b,c]) )
+        total = []
+        # for i,j  in zip(tmp, tmp1):
+        #     total.append(i+j)
+        tmp3 = tf.gather(tmp, tf.range(tm[1]))
+        print(sess.run(tmp3) )
 
-        img = np.zeros((1, 8, 8, 9), np.float32)
-        boxes = tf.constant([[0, 0, 2 * 16, 5 * 16]], dtype=tf.float32)
-        print(boxes.get_shape().as_list())
-
-        yOffset = 0
-        xOffset = 0
-        chOffset = 0
-        img[0, yOffset + 0:yOffset + 1, xOffset + 0:xOffset + 1, chOffset + 0:chOffset + 1] = 1
-        # img[:,:,:,:]=1
-        p = tf.placeholder(tf.float32, shape=img.shape)
-
-        np.set_printoptions(threshold=5000, linewidth=150)
-
-        pooled = positionSensitiveRoiPooling(p, boxes)
-        pooled = tf.Print(pooled, [tf.shape(pooled)], "pooled shape", summarize=100)
-        print(sess.run(pooled, feed_dict={p: img}))
-
-        loss = tf.reduce_sum(pooled)
-
-        g = tf.gradients(loss, p)
-
-        print(img)
-        print(sess.run(g, feed_dict={p: img})[0])
-        print(sess.run(g, feed_dict={p: img})[0][:, :, :, 1])

@@ -71,6 +71,22 @@ def augment(image, boxes, classes):
 
         return image, boxes, classes
 
+def MutliAugment(image, boxes, classes, number):
+    with tf.name_scope('augmentation') as scope:
+        image = image / 255.0
+        image = nonlinear([image], 0.8, 1.2)[0]
+        # image, boxes = mirror(image, boxes)
+
+        image = tf.image.random_contrast(image, lower=0.3, upper=1.3)
+        image = tf.image.random_brightness(image, max_delta=0.3)
+
+        image = randomNormal([image], 0.025)[0]
+
+        image = tf.clip_by_value(image, 0, 1.0) * 255
+
+        return image, boxes, classes, number
+
+
 def augmentImages(images, boxess, classes, boxess1, classes1, refdisp):
 
     with tf.name_scope('augmentation') as scope:

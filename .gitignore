@@ -1,4 +1,9 @@
 data/
 model/test/logs/
+nModel/logs/
+nModel/logs_old/
+nModel/model/
+MultiModel/model/
+MultiModel/logs/
 save/model*
 .idea/

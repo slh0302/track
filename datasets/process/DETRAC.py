@@ -134,6 +134,22 @@ def loadImages(begin_img_id, anns, prefix=""):
     nxet_dir = dir + "/" + next_file + ".jpg"
     return [dir + "/" + file, nxet_dir], [begin_img_id, next_anns]
 
+def loadModImages(begin_img_id, anns, prefix=""):
+    sp = begin_img_id.split('_')
+    dir = '_'.join(sp[:-1])
+    file = begin_img_id + ".jpg"
+    next_file = "img%05d" % (int(sp[-1][3:]) + 1)
+    next_anns = ("%s_%s_%s" % (sp[0], sp[1], next_file))
+    if not next_anns in anns.keys():
+        next_file = "img%05d" % (int(sp[-1][3:]) - 1)
+        next_anns = ("%s_%s_%s" % (sp[0], sp[1], next_file))
+        nxet_dir = next_anns + ".jpg"
+        return [nxet_dir, file], [next_anns, begin_img_id]
+
+    nxet_dir = next_anns + ".jpg"
+    return [file, nxet_dir], [begin_img_id, next_anns]
+
+
 def FetchImages(Imagelist, prefix=""):
     with open(Imagelist, "r") as f:
         imgs = []
@@ -147,6 +163,6 @@ def FetchImages(Imagelist, prefix=""):
 #     bboxes, begin = FetchAll("/home/slh/tf-project/track/data/DETRAC-Train-Annotations-XML/list",
 #                              "/home/slh/dataset/DETRAC/DETRAC-Train-Annotations-XML/")
 #
-#     st, ans = loadImages("MVI_20011_img01470", begin)
-#     st1, ans1 = loadImages("MVI_20011_img01468", begin)
+#     st, ans = loadModImages("MVI_20011_img01470", begin)
+    # st1, ans1 = loadImages("MVI_20011_img01468", begin)
 #     print(st)

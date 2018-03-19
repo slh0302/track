@@ -47,7 +47,7 @@ def loadExitingFromCheckpoint(file, sess):
 	loadVarsFromCheckpoint(sess, varsToRead, file)
 	return loadedVars
 
-def loadCheckpoint(sess, saveDir, resume, ignoreVarsInFileNotInSess=False):
+def loadCheckpoint(sess, saveDir, resume, ignoreVarsInFileNotInSess=False,fromScope=None, toScope=None):
 	def initGlobalVars():
 		if "global_variables_initializer" in tf.__dict__:
 			sess.run(tf.global_variables_initializer())
@@ -113,7 +113,7 @@ def importIntoScope(sess, file, fromScope=None, toScope=None, collection=tf.Grap
 			name = va.op.name
 
 		if name not in knownNames:
-			# print("WARNING: Variable \""+name+"\" not found in file to load.")
+			print("WARNING: Variable \""+name+"\" not found in file to load.")
 			continue
 
 		ignored = False
