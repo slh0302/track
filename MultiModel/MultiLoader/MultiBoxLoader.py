@@ -29,7 +29,7 @@ class MultiBoxLoader:
         self.sources=[]
         self.initDone=False
         self.initOnStart=initOnStart
-        self.batch = batch*2
+        self.batch = batch
 
         with tf.name_scope('dataset') as scope:
             self.queue = tf.FIFOQueue(dtypes=[tf.float32, tf.float32, tf.uint8, tf.int32],
@@ -48,7 +48,8 @@ class MultiBoxLoader:
 
     def threadFn(self, tid, sess):
         if tid==0:
-            self.init()
+            if not self.initDone:
+                self.init()
         else:
             while not self.initDone:
                 time.sleep(1)

@@ -9,7 +9,8 @@ checkpoint_path = os.path.join(model_dir, "save/model_3/model")
 reader = pywrap_tensorflow.NewCheckpointReader(checkpoint_path)
 var_to_shape_map = reader.get_variable_to_shape_map()
 for key in var_to_shape_map:
-    print("tensor_name: ", key)
+    if "classMaps" in key:
+        print("tensor_name: ", key)
 
     #print(var_to_shape_map[key])
     # print(reader.get_tensor(key)) # Remove this is you want to print only variable names

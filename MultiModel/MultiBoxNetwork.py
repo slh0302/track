@@ -19,9 +19,9 @@ from MultiModel.MultiRPN import MultiRPN
 import tensorflow as tf
 
 class MultiBoxNetwork:
-	def __init__(self, number, nCategories, rpnLayer, rpnDownscale, rpnOffset,
+	def __init__(self, nCategories, rpnLayer, rpnDownscale, rpnOffset,
 				 featureLayer=None, featureDownsample=None, featureOffset=None,
-				 weightDecay=1e-6, hardMining=True, batch=8, reuse=False):
+				 weightDecay=1e-6, hardMining=True, batch=8, reuse=None):
 		if featureLayer is None:
 			featureLayer=rpnLayer
 
@@ -32,8 +32,8 @@ class MultiBoxNetwork:
 			rpnOffset=featureOffset
 
 		with tf.name_scope("BoxNetwork"):
-			self.rpn = MultiRPN(number, rpnLayer, immediateSize=512, weightDecay=weightDecay, inputDownscale=rpnDownscale, offset=rpnOffset, batch=batch, reuse=reuse)
-			self.boxRefiner = MultiBoxRefinementNetwork(number, featureLayer, nCategories, downsample=featureDownsample, offset=featureOffset, hardMining=hardMining,batch=batch, reuse=reuse)
+			self.rpn = MultiRPN(rpnLayer, immediateSize=512, weightDecay=weightDecay, inputDownscale=rpnDownscale, offset=rpnOffset, batch=batch, reuse=reuse)
+			self.boxRefiner = MultiBoxRefinementNetwork(featureLayer, nCategories, downsample=featureDownsample, offset=featureOffset, hardMining=hardMining,batch=batch, reuse=reuse)
 
 			self.proposals, self.proposalScores = self.rpn.getPositiveOutputs(maxOutSize=300)
 
@@ -48,9 +48,8 @@ class MultiBoxNetwork:
 	def getBoxes(self, nmsThreshold=0.3, scoreThreshold=0.8):
 		return self.boxRefiner.getBoxes(self.proposals, self.proposalScores, maxOutputs=50, nmsThreshold=nmsThreshold, scoreThreshold=scoreThreshold)
 
-	def getLoss(self, refBoxes, refClasses):
-		rpnloss = self.rpn.loss(refBoxes)
-		boxLoss = self.boxRefiner.loss(self.proposals, refBoxes, refClasses)
-		# rpnloss = tf.reduce_mean(tf.stack(rpnloss, axis=0))
-		# boxLoss = tf.reduce_mean(tf.stack(boxLoss,axis=0))
-		return rpnloss + boxLoss
+	def getLoss(self, refBoxes, refClasses, number):
+		self.testnumber = number
+		self.rpnloss = self.rpn.loss(refBoxes, number)
+		self.boxLoss, self.totalBox = self.boxRefiner.loss(self.proposals, refBoxes, refClasses, number)
+		return self.rpnloss + self.boxLoss

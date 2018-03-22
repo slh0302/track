@@ -272,7 +272,7 @@ class InceptionResnetV2:
         print("Ignoring blocks:")
         print(ignores)
         CheckpointLoader.importIntoScope(sess, filename, fromScope="InceptionResnetV2", toScope=self.scope.name,
-                                         ignore=ignores)
+                                         ignore=ignores, ignoreClass=False)
 
     def getOutput(self, name=None):
         if name is None:

@@ -17,6 +17,7 @@
 
 import random
 import numpy as np
+import pickle
 import cv2
 import tensorflow as tf
 from datasets.process import BoxAwareRandZoom
@@ -30,12 +31,19 @@ class MultiCarDataset:
         self.set = set
         self.randomZoom = randomZoom
         self.batch = batch
-        # self.caption = {"others":2, "car":2, "van":7, "bus":5}
-        self.caption = {"others": 0, "car": 1, "van": 2, "bus": 3}
+        # 1
+        self.caption = {"others":1, "car":1, "van":1, "bus":1}
+        # 4
+        # self.caption = {"others": 1, "car": 2, "van": 3, "bus": 4}
+        # 80
+        # self.caption = {"others": 3, "car": 3, "van": 8, "bus": 6}
 
     def init(self):
-        self.bbox, self.Anns = DETRAC.FetchAll(self.path + "DETRAC-Train-Annotations-XML/list",
-                                               self.path + "DETRAC-Train-Annotations-XML/")
+        # self.bbox, self.Anns = DETRAC.FetchAll(self.path + "DETRAC-Train-Annotations-XML/list",
+        #                                        self.path + "DETRAC-Train-Annotations-XML/")
+        f = open("/home/slh/tf-project/track/MultiModel/TFRecord/TestAns.pkl", 'rb')
+        self.Anns = pickle.load(f)
+        f.close()
         self.images = list(self.Anns.keys())
         print("Loaded " + str(len(self.images)) + " images")
 
@@ -55,11 +63,19 @@ class MultiCarDataset:
             idBox = []
             categorieList=[]
             # for
-            for _ in range(self.batch):
-                imgId = self.images[random.randint(0, len(self.images) - 1)]
-                pathList, annsList = DETRAC.loadImages(imgId, self.Anns)
+            for _ in range(int(self.batch / 2)):
+                ids = random.randint(0, len(self.images) - 1)
+                imgId = self.images[ids]
+
+                #TODO for testing
+                # data = ['MVI_20035_img00536', 'MVI_40871_img01596','MVI_39851_img00085']
+                # ids = random.randint(0, 2)
+                # imgId = data[ids]
+                # pathList, annsList = DETRAC.loadImages(imgId, self.Anns)
+                pathList, annsList = DETRAC.loadModImages(imgId, self.Anns)
                 for path, ans in zip(pathList, annsList):
-                    imgFile = self.path + "Insight-MVT_Annotation_" + self.set + "/" + path
+                    # imgFile = self.path + "Insight-MVT_Annotation_" + self.set + "/" + path
+                    imgFile = "/home/slh/dataset/ai/VOCdevkit_2CLS/VOC2007/JPEGImages/" + path
                     img = cv2.imread(imgFile)
 
                     if img is None:
@@ -78,11 +94,11 @@ class MultiCarDataset:
                         continue
 
                     iBoxes = [{
-                        "x": int(self.bbox[i][0]),
-                        "y": int(self.bbox[i][1]),
-                        "w": int(self.bbox[i][2]),
-                        "h": int(self.bbox[i][3]),
-                        "id": int(self.bbox[i][4])
+                        "x": int(i[0]),
+                        "y": int(i[1]),
+                        "w": int(i[2]),
+                        "h": int(i[3]),
+                        "id": int(i[4])
                     } for i in instances]
 
                     if self.randomZoom:
@@ -122,7 +138,7 @@ class MultiCarDataset:
                         if (newBox[2] - newBox[0]) >= 16 and (newBox[3] - newBox[1]) >= 16:
                             boxes.append(newBox)
                             idBoxes[iBoxes[i]["id"]] = newBox
-                            categories.append(self.caption[self.bbox[instances[i]][-1]])
+                            categories.append(self.caption[instances[i][-1]])
 
                     if len(boxes) == 0:
                         print("Warning: No boxes on image. Skipping.")
@@ -135,7 +151,7 @@ class MultiCarDataset:
                     boxList.append(boxes)
                     idBox.append(idBoxes)
                     categorieList.append(categories)
-            return imgs, boxList, categorieList
+            return imgs, boxList, categorieList# , pathList, annsList, ids
             # refDisp = self.compareID(idBox[0], idBox[1])
             # if len(refDisp[0]) == 0:
             #     continue

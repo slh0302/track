@@ -19,7 +19,9 @@ if __name__ == "__main__":
     import tensorflow as tf
     from Roi.ROIPoolingWrapper import *
 
-    with tf.Session() as sess:
+    config = tf.ConfigProto(allow_soft_placement=True, intra_op_parallelism_threads=8)
+    config.gpu_options.allow_growth = True
+    with tf.Session(config=config) as sess:
         tmp = tf.constant([[[2,8],[1,3]],[[1,4],[1,5]], [[2,8],[1,3]]], dtype=tf.float32)
         tmp1 = tf.constant([[[1, 4],[2, 8]],[[2, 5],[3, 9]], [[2,8],[1,3]]], dtype=tf.float32)
         tm = tf.constant([1,2,3,1,1])
@@ -34,14 +36,13 @@ if __name__ == "__main__":
         # res = tf.logical_and((x1 - x0) >= (5 - 1), (y1 - y0) >= (5 - 1))
         test = tf.constant([
             [2,3,4],
-            [14,7,9],
-            [1,1,12]
         ])
+        assa = tf.constant(12.0, tf.float32)
         a,b = test111()
         c = a[1]
         total = []
         # for i,j  in zip(tmp, tmp1):
         #     total.append(i+j)
         tmp3 = tf.gather(tmp, tf.range(tm[1]))
-        print(sess.run(tmp3) )
-
+        print(sess.run(tf.stack(test,axis=0)) )
+        print("1231")

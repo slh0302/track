@@ -27,7 +27,7 @@ class MultiBoxInceptionResnet(MultiBoxNetwork):
 	LAYER_NAMES = ['Conv2d_1a_3x3','Conv2d_2a_3x3','Conv2d_2b_3x3','MaxPool_3a_3x3','Conv2d_3b_1x1','Conv2d_4a_3x3',
 			  'MaxPool_5a_3x3','Mixed_5b','Repeat','Mixed_6a','Repeat_1','Mixed_7a','Repeat_2','Block8','Conv2d_7b_1x1']
 
-	def __init__(self, inputs, number, nCategories, name="BoxNetwork", weightDecay=0.00004, freezeBatchNorm=False, reuse=False, isTraining=True, trainFrom=None, hardMining=True, batch=8):
+	def __init__(self, inputs, nCategories, name="BoxNetwork", weightDecay=0.00004, freezeBatchNorm=False, reuse=False, isTraining=True, trainFrom=None, hardMining=True, batch=8):
 		self.boxThreshold = 0.5
 
 		try:
@@ -44,7 +44,7 @@ class MultiBoxInceptionResnet(MultiBoxNetwork):
 		with tf.variable_scope(name, reuse=reuse) as scope:
 			self.googleNet = InceptionResnetV2("features", inputs, trainFrom=trainFrom, freezeBatchNorm=freezeBatchNorm)
 			self.scope=scope
-		
+			self.debug_shape = []
 			with tf.variable_scope("Box"):
 				#Pepeat_1 - last 1/16 layer, Mixed_6a - first 1/16 layer
 				scale_16 = self.googleNet.getOutput("Repeat_1")[:,1:-1,1:-1,:]
@@ -58,11 +58,12 @@ class MultiBoxInceptionResnet(MultiBoxNetwork):
 						activation_fn = tf.nn.relu):
 
 					net = tf.concat([ tf.image.resize_bilinear(scale_32, tf.shape(scale_16)[1:3]), scale_16], 3)
+					self.debug_shape.append(net)
 					rpnInput = slim.conv2d(net, 1024, 1)
 					
 					#BoxNetwork.__init__(self, nCategories, rpnInput, 16, [32,32], scale_32, 32, [32,32], weightDecay=weightDecay, hardMining=hardMining)
 					featureInput = slim.conv2d(net, 1536, 1)
-					MultiBoxNetwork.__init__(self, number, nCategories, rpnInput, 16, [32,32], featureInput, 16, [32,32], weightDecay=weightDecay, hardMining=hardMining, batch=batch)
+					MultiBoxNetwork.__init__(self, nCategories, rpnInput, 16, [32,32], featureInput, 16, [32,32], weightDecay=weightDecay, hardMining=hardMining, batch=batch)
 	
 	def getVariables(self, includeFeatures=False):
 		if includeFeatures:

@@ -16,11 +16,14 @@
 
 import tensorflow as tf
 
-def getCheckpointVarList(file):
+def getCheckpointVarList(file, ignoreClass=False):
 	reader = tf.contrib.framework.load_checkpoint(file)
 	varsToRead = []
 	loadedVars = []
 	for v in reader.get_variable_to_shape_map().keys():
+		if ignoreClass:
+			if 'classMaps' in v:
+				continue
 		tfVar = tf.contrib.slim.get_variables_by_name(v)
 		tfVarFitlered=[]
 		for var in tfVar:
@@ -47,7 +50,7 @@ def loadExitingFromCheckpoint(file, sess):
 	loadVarsFromCheckpoint(sess, varsToRead, file)
 	return loadedVars
 
-def loadCheckpoint(sess, saveDir, resume, ignoreVarsInFileNotInSess=False,fromScope=None, toScope=None):
+def loadCheckpoint(sess, saveDir, resume, ignoreVarsInFileNotInSess=False,fromScope=None, toScope=None, ignoreClass=False):
 	def initGlobalVars():
 		if "global_variables_initializer" in tf.__dict__:
 			sess.run(tf.global_variables_initializer())
@@ -64,7 +67,7 @@ def loadCheckpoint(sess, saveDir, resume, ignoreVarsInFileNotInSess=False,fromSc
 		if last is not None:
 			print("Resuming "+last)
 
-			varsToRead, loadedVars = getCheckpointVarList(last)
+			varsToRead, loadedVars = getCheckpointVarList(last, ignoreClass=ignoreClass)
 			
 			allVars=tf.global_variables()
 			allVars = [v.op.name for v in allVars]
@@ -97,7 +100,7 @@ def loadCheckpoint(sess, saveDir, resume, ignoreVarsInFileNotInSess=False,fromSc
 			initGlobalVars()
 			return False
 
-def importIntoScope(sess, file, fromScope=None, toScope=None, collection=tf.GraphKeys.GLOBAL_VARIABLES, ignore=[]):
+def importIntoScope(sess, file, fromScope=None, toScope=None, collection=tf.GraphKeys.GLOBAL_VARIABLES, ignore=[], ignoreClass=False):
 	toRun=[]
 	reader = tf.contrib.framework.load_checkpoint(file)
 

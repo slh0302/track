@@ -49,4 +49,6 @@ class BoxNetwork:
 		return self.boxRefiner.getBoxes(self.proposals, self.proposalScores, maxOutputs=50, nmsThreshold=nmsThreshold, scoreThreshold=scoreThreshold)
 
 	def getLoss(self, refBoxes, refClasses):
-		return self.rpn.loss(refBoxes) + self.boxRefiner.loss(self.proposals, refBoxes, refClasses)
+		self.rpnloss = self.rpn.loss(refBoxes)
+		self.boxLoss = self.boxRefiner.loss(self.proposals, refBoxes, refClasses)
+		return self.rpnloss  + self.boxLoss

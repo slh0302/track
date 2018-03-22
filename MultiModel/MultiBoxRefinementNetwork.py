@@ -26,7 +26,7 @@ import Loss.Loss as Loss
 class MultiBoxRefinementNetwork:
 	POOL_SIZE=3
 
-	def __init__(self, number, input, nCategories, downsample=16, offset=[32,32], hardMining=True, batch=8, reuse=False):
+	def __init__(self, input, nCategories, downsample=16, offset=[32,32], hardMining=True, batch=8, reuse=False):
 		self.downsample = downsample
 		self.offset = offset
 		self.reuse = reuse
@@ -34,13 +34,13 @@ class MultiBoxRefinementNetwork:
 		self.classMaps = slim.conv2d(input, (self.POOL_SIZE**2)*(1+nCategories), 3, activation_fn=None, scope='classMaps', reuse=self.reuse)
 		self.regressionMap = slim.conv2d(input, (self.POOL_SIZE**2)*4, 3, activation_fn=None, scope='regressionMaps',reuse=self.reuse)
 
-		self.batch = batch*2
+		self.batch = batch
 		self.classMapsSplit = tf.split(self.classMaps, self.batch, axis=0)
 		self.regressionMapSplit = tf.split(self.regressionMap, self.batch, axis=0)
 
 		self.hardMining=hardMining
 
-		self.number = number
+		# self.number = number
 		#Magic parameters.
 		self.posIouTheshold = 0.5
 		self.negIouThesholdHi = 0.5
@@ -95,7 +95,7 @@ class MultiBoxRefinementNetwork:
 			refinedBoxes, refSizes, rawSizes = self.refineBoxes(boxes, True, number)
 			return Loss.boxRegressionLoss(refinedBoxes, rawSizes, refBoxes, refSizes), refinedBoxes
 
-	def loss(self, proposals, refBoxes, refClasses):
+	def loss(self, proposals, refBoxes, refClasses, number):
 		with tf.name_scope("BoxRefinementNetworkLoss"):
 			tmp = []
 			totalBox = []
@@ -116,8 +116,9 @@ class MultiBoxRefinementNetwork:
 							MultiGather.gather([positiveBoxes, positiveClasses, positiveRefBoxes], selected)
 
 					boxLoss, boxes = self.boxRefinementLoss(positiveBoxes, positiveRefBoxes, number)
+					totalBox.append(boxes)
 					return tf.tuple([self.classRefinementLoss(positiveBoxes, positiveClasses, number) +
-									 boxLoss, tf.shape(positiveBoxes)[0]]), boxes
+									 boxLoss, tf.shape(positiveBoxes)[0]])
 
 			def getNegLoss(negativeBoxes, nNegative, number):
 				with tf.name_scope("getNetLoss"):
@@ -127,15 +128,15 @@ class MultiBoxRefinementNetwork:
 
 					return self.classRefinementLoss(negativeBoxes, tf.zeros(tf.stack([tf.shape(negativeBoxes)[0],1]), dtype=tf.uint8), number)
 
-			def returnNullLoss():
-				return tf.tuple([tf.constant(0.0), tf.constant(0, tf.int32)]), tf.constant([[0.0, 0.0, 0.0, 0.0]])
+			def returnNullLoss(number):
+				return tf.tuple([tf.constant(0.0, tf.float32), tf.constant(0, tf.int32)]), tf.constant([[0.0, 0.0, 0.0, 0.0]])
 
 			def getRefinementLoss():
 				with tf.name_scope("getRefinementLoss"):
 					boxList, clsList = tf.unstack(refBoxes,axis=0), tf.unstack(refClasses,axis=0)
 					totalLoss = []
 					for pro, bx, cls, nm in zip(proposals, boxList, clsList, range(self.batch)):
-						tm = tf.range(self.number[nm], dtype=tf.int32)
+						tm = tf.range(number[nm], dtype=tf.int32)
 						bx = tf.gather(bx, tm)
 						cls = tf.gather(cls, tm)
 
@@ -160,23 +161,24 @@ class MultiBoxRefinementNetwork:
 						nPositive = tf.shape(posBoxes)[0]
 						nNegative = tf.shape(negBoxes)[0]
 
+						tmp_number = tf.cast(number[nm], dtype=tf.float32)
 						if self.hardMining:
-							posLoss, box = tf.cond(nPositive > 0,
-												   lambda: getPosLoss(posBoxes, posRefIndices, 0, bx, cls, nm),
-												   lambda: returnNullLoss() )
-							posLoss = posLoss[0]
+							posLoss = tf.cond(nPositive > 0,
+												   lambda: getPosLoss(posBoxes, posRefIndices, 0, bx, cls, nm)[0],
+												   lambda: tf.zeros((0,), tf.float32) )
+							# posLoss = posLoss[0]
 							negLoss = tf.cond(nNegative > 0, lambda: getNegLoss(negBoxes, 0, nm), lambda: tf.zeros((0,), tf.float32))
 							# posLoss = posLoss[0]
 							allLoss = tf.concat([posLoss, negLoss], 0)
 							totalLoss.append( tf.cond(tf.shape(allLoss)[0]>0,
 										   lambda: tf.reduce_mean(basic.MultiGather.gatherTopK(allLoss, self.nTrainBoxes)),
 										   lambda: tf.constant(0.0)) )
-							totalBox.append(box)
+							# totalBox.append(box)
 						else:
-							posLoss, box = tf.cond(nPositive > 0,
+							posLoss, posCount = tf.cond(nPositive > 0,
 														lambda: getPosLoss(posBoxes, posRefIndices, self.nTrainPositives, bx, cls, nm),
-														lambda: returnNullLoss() )
-							posLoss, posCount = posLoss[0], posLoss[1]
+														lambda: tf.constant(0.0) )
+							# posLoss, posCount = posLoss[0], posLoss[1]
 							negLoss = tf.cond(nNegative > 0,
 											  lambda: getNegLoss(negBoxes, self.nTrainBoxes-posCount, nm),
 											  lambda: tf.constant(0.0))
@@ -185,12 +187,12 @@ class MultiBoxRefinementNetwork:
 							nNegative = tf.cond(nNegative > 0, lambda: tf.cast(tf.shape(negLoss)[0], tf.float32), lambda: tf.constant(0.0))
 
 							totalLoss.append( (tf.reduce_mean(posLoss)*nPositive + tf.reduce_mean(negLoss)*nNegative)/(nNegative+nPositive) )
-							totalBox.append(box)
+							# totalBox.append(box)
 					return tf.reduce_mean(tf.stack(totalLoss,axis=0))
 
-		return tf.cond(tf.logical_and(tf.shape(proposals[0])[0] > 0, tf.shape(refBoxes)[0] > 0),
-					   lambda: getRefinementLoss(),
-					   lambda: tf.constant(0.0))
+		return tf.cond(tf.shape(refBoxes)[0] > 0,
+					   lambda: [getRefinementLoss(),totalBox],
+					   lambda: [tf.constant(0.0), [tf.constant([0.0,0.0,0.0,0.0],dtype=tf.float32)]*self.batch])
 
 	def getBoxes(self, proposals, proposal_scores, maxOutputs=30, nmsThreshold=0.3, scoreThreshold=0.8):
 		if scoreThreshold is None:

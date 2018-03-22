@@ -2,8 +2,17 @@ data/
 model/test/logs/
 nModel/logs/
 nModel/logs_old/
+nModel/logs_train_0/
+nModel/logs_train_1/
 nModel/model/
 MultiModel/model/
 MultiModel/logs/
+MultiModel/test/imgs/
+MultiModel/test/output/
+MultiModel/test/test/
 save/model*
 .idea/
+*/*/__pycache__/
+*/__pycache__/
+MultiModel/TFRecord/*.pkl
+MultiModel/TFRecord/results

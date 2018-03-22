@@ -8,19 +8,21 @@ import tensorflow as tf
 import sys
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "6,9,13"
-learning_rate = 0.0001
+
+log_dir = "logSingleRFCN0/"
+model_dir = "modelSingleRFCN0/"
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "9"
+learning_rate = 0.001
 batch = 8
 globalStep = tf.Variable(0, name='globalStep', trainable=False)
 globalStepInc = tf.assign_add(globalStep, 1)
 print("learning: ", learning_rate)
 # initial_learning_rate = 0.1
-learning_rate = tf.train.exponential_decay(learning_rate,
-                                           global_step=globalStep,
-                                           decay_steps=10000, decay_rate=0.9)
+
 def createUpdateOp(net, gradClip=1):
     with tf.name_scope("optimizer"):
-        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate, epsilon=1e-8)
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         totalLoss = tf.losses.get_total_loss()
         grads = optimizer.compute_gradients(totalLoss, var_list=net.getVariables())
@@ -39,35 +41,45 @@ def createUpdateOp(net, gradClip=1):
 # load data
 dataset = MultiBoxLoader(batch=batch)
 dataset.add(MultiCarDataset("/home/slh/dataset/DETRAC/", set="Train", batch=batch))
+# dataset.add(MultiCarDataset("/home/slh/dataset/DETRAC/", set="Train", batch=batch))
 images, boxes, classes, number = Augment.MutliAugment(*dataset.get())
 
+num_epoch_for_decay = 2
+# call to calc
+dataset.init()
+decay_steps = int((dataset.count() / (batch * 2 * 1)) * num_epoch_for_decay)
+learning_rate = tf.train.exponential_decay(learning_rate,
+                                           global_step=globalStep,
+                                           decay_steps=decay_steps, decay_rate=0.8, staircase=True)
+
 # load module
-net = MultiBoxInceptionResnet(images, number, 4, name="boxnet", hardMining=False,batch=batch)
-loss = net.getLoss(boxes, classes)
+net = MultiBoxInceptionResnet(images, 1, name="boxnet", hardMining=True, batch=batch, trainFrom=0)
+loss = net.getLoss(boxes, classes, number)
 tf.losses.add_loss(loss)
 trainOp = createUpdateOp(net)
-tf.summary.scalar("loss_2", loss)
-# merged_summary_op = tf.summary.merge_all()
-# run phases
-saver = tf.train.Saver(keep_checkpoint_every_n_hours=4, max_to_keep=100)
 
-with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, intra_op_parallelism_threads=8)) as sess:
-    writer = tf.summary.FileWriter("../logs/", sess.graph)
+# summary
+tf.summary.scalar("loss_t", loss)
+tf.summary.scalar("learning_1", learning_rate)
+
+# run phases
+# config.gpu_options.allow_growth = True
+saver = tf.train.Saver(keep_checkpoint_every_n_hours=4, max_to_keep=100)
+config = tf.ConfigProto(allow_soft_placement=True, intra_op_parallelism_threads=8)
+config.gpu_options.allow_growth = True
+with tf.Session(config=config) as sess:
+    writer = tf.summary.FileWriter("../logs/" + log_dir, sess.graph)
 
     print("Loading GoogleNet")
     sess.run(tf.global_variables_initializer())
 
-    #if not loadCheckpoint(sess, None, "../../save/model_3/model", ignoreVarsInFileNotInSess=True):
-    net.importWeights(sess, "/home/slh/tf-project/track/save/model_1/inception_resnet_v2_2016_08_30.ckpt")
-     #   print("reload network.")
-      #  sys.exit(-1)
 
-    # net.importWeights(sess, "initialWeights/", permutateRgb=False)
-    print("Done.")
-    # for k, v in zip(variable_names, values):
-    #     print("Variable: ", k)
-    #     print("Shape: ", v.shape)
-        # print(v)
+    # net.importWeights(sess, "/home/slh/tf-project/track/save/model_1/inception_resnet_v2_2016_08_30.ckpt")
+    # print("Done.")
+
+    if not loadCheckpoint(sess, None, "../../save/model_3/model", ignoreVarsInFileNotInSess=True, ignoreClass=True):
+        print("reload network.")
+        sys.exit(-1)
 
     dataset.startThreads(sess)
 
@@ -77,15 +89,18 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, intra_op_parall
 
     while True:
         try:
-            i, ls= sess.run([globalStepInc, trainOp])
+            i, ls, tbox, nm, rpnls, bxls= sess.run([globalStepInc, trainOp, net.totalBox, net.testnumber, net.rpnloss, net.boxLoss])
         except KeyboardInterrupt:
-            print("Keyboard interrupt. Shutting down.")
+            print("Keyboard interrupt. Shutting down")
             sys.exit(0)
 
         lossSum += ls
         cycleCnt += 1
         # average = 0
-        if i % 100 == 0:
+        print("setp ",i," loss: ", ls, " testnumber: ", nm.tolist(), " toal box:",[tbox[i].shape for i in range(batch)],
+              " rpn loss:", rpnls, " boxls:", bxls)
+
+        if i % 50 == 0:
             if cycleCnt > 0:
                 loss = lossSum / cycleCnt
 
@@ -102,7 +117,7 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, intra_op_parall
         if i % 200 == 0:
             # average = lossSum / cycleCnt
             print("Saving checkpoint " + str(i))
-            saver.save(sess, "../model/model_single/model_" + str(i*batch*2), write_meta_graph=False)
+            saver.save(sess, "../model/"+ model_dir + "model_" + str(i*batch*2), write_meta_graph=False)
 
         # tf.summary.scalar("loss_aver", average)
         merged_summary_op = tf.summary.merge_all()
