@@ -8,17 +8,11 @@ from utils.CheckpointLoader import loadCheckpoint
 import tensorflow as tf
 import sys
 import os
-# 3 0.01
-# 2 0.1
-# 4 0.001
-# 5 0.001 decay
 
-# loss 2 0.001
-# loss 3 0.0001
-os.environ["CUDA_VISIBLE_DEVICES"] = "8"
+os.environ["CUDA_VISIBLE_DEVICES"] = "9"
 learning_rate = 0.001
 globalStep = tf.Variable(0, name='globalStep', trainable=False)
-globalStepInc = tf.assign_add(globalStep, 1)
+# globalStepInc = tf.assign_add(globalStep, 1)
 print("learning: ", learning_rate)
 # initial_learning_rate = 0.1
 learning_rate = tf.train.exponential_decay(learning_rate,
@@ -39,7 +33,7 @@ def createUpdateOp(net, gradClip=1):
                 cGrads.append((tf.clip_by_value(g, -float(gradClip), float(gradClip)), v))
             grads = cGrads
 
-        update_ops.append(optimizer.apply_gradients(grads))
+        update_ops.append(optimizer.apply_gradients(grads, global_step=globalStep))
         return control_flow_ops.with_dependencies([tf.group(*update_ops)], totalLoss, name='train_op')
 
 # load data
@@ -55,36 +49,31 @@ trainOp = createUpdateOp(net)
 tf.summary.scalar("loss_4", loss)
 # merged_summary_op = tf.summary.merge_all()
 # run phases
-saver = tf.train.Saver(keep_checkpoint_every_n_hours=4, max_to_keep=100)
+
 config = tf.ConfigProto(allow_soft_placement=True, intra_op_parallelism_threads=8)
 config.gpu_options.allow_growth = True
 with tf.Session(config=config) as sess:
-    writer = tf.summary.FileWriter("../logs_train_1/", sess.graph)
-
+    writer = tf.summary.FileWriter("../logs_same/", sess.graph)
+    saver = tf.train.Saver(keep_checkpoint_every_n_hours=4, max_to_keep=100)
     print("Loading GoogleNet")
-    sess.run(tf.global_variables_initializer())
 
     # net.importWeights(sess, "/home/slh/tf-project/track/save/model_1/inception_resnet_v2_2016_08_30.ckpt")
-    if not loadCheckpoint(sess, None, "../../save/model_3/model", ignoreVarsInFileNotInSess=True):
+    if not loadCheckpoint(sess, None, "../../save/model_3/model", ignoreVarsInFileNotInSess=True, ignoreClass=True):
        print("reload network.")
        sys.exit(-1)
 
-    # net.importWeights(sess, "initialWeights/", permutateRgb=False)
     print("Done.")
-    # for k, v in zip(variable_names, values):
-    #     print("Variable: ", k)
-    #     print("Shape: ", v.shape)
-        # print(v)
 
+    i = sess.run(globalStep)
     dataset.startThreads(sess)
+    sess.graph.finalize()
 
-    i = 1
     cycleCnt = 0
     lossSum = 0
 
     while True:
         try:
-            i, ls, rpnls, bxls = sess.run([globalStepInc, trainOp, net.rpnloss, net.boxLoss])
+            i, ls, rpnls, bxls = sess.run([globalStep, trainOp, net.rpnloss, net.boxLoss])
         except KeyboardInterrupt:
             print("Keyboard interrupt. Shutting down.")
             sys.exit(0)
@@ -98,22 +87,14 @@ with tf.Session(config=config) as sess:
             if cycleCnt > 0:
                 loss = lossSum / cycleCnt
 
-            # lossS=sess.run(trainLossSum, feed_dict={
-            # 	trainLossFeed: loss
-            # })
-            # log.add_summary(lossS, global_step=samplesSeen)
-
             epoch = "%.2f" % (float(i) / dataset.count())
             print("Iteration " + str(i) + " (epoch: " + epoch + "): loss: " + str(loss))
             lossSum = 0
             cycleCnt = 0
 
-        if i % 4000 == 0:
+        if i % 2000 == 0:
             # average = lossSum / cycleCnt
             print("Saving checkpoint " + str(i))
-            saver.save(sess, "../model/train_1/model_" + str(i), write_meta_graph=False)
+            saver.save(sess, "../model/model_same/model_" + str(i), write_meta_graph=False)
 
         # tf.summary.scalar("loss_aver", average)
-        merged_summary_op = tf.summary.merge_all()
-        summary_merged = sess.run(merged_summary_op)
-        writer.add_summary(summary_merged, i)

@@ -52,4 +52,4 @@ class MultiBoxNetwork:
 		self.testnumber = number
 		self.rpnloss = self.rpn.loss(refBoxes, number)
 		self.boxLoss, self.totalBox = self.boxRefiner.loss(self.proposals, refBoxes, refClasses, number)
-		return self.rpnloss + self.boxLoss
+		return self.rpnloss + self.boxLoss, self.totalBox

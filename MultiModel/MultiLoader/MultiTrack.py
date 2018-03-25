@@ -23,7 +23,7 @@ import tensorflow as tf
 from datasets.process import BoxAwareRandZoom
 from datasets.process import DETRAC
 
-class MultiCarDataset:
+class MultiTrack:
     def __init__(self, path, set="train", normalizeSize=True, randomZoom=False, batch=8, Noc=4):
         self.path = path
         self.car = None
@@ -40,8 +40,6 @@ class MultiCarDataset:
             self.caption = {"others": 2, "car": 2, "van": 7, "bus": 5}
 
     def init(self):
-        # self.bbox, self.Anns = DETRAC.FetchAll(self.path + "DETRAC-Train-Annotations-XML/list",
-        #                                        self.path + "DETRAC-Train-Annotations-XML/")
         f = open("/home/slh/tf-project/track/MultiModel/TFRecord/TrainAns.pkl", 'rb')
         self.Anns = pickle.load(f)
         f.close()
@@ -69,10 +67,6 @@ class MultiCarDataset:
                 imgId = self.images[ids]
 
                 #TODO for testing
-                # data = ['MVI_20035_img00536', 'MVI_40871_img01596','MVI_39851_img00085']
-                # ids = random.randint(0, 2)
-                # imgId = data[ids]
-                # pathList, annsList = DETRAC.loadImages(imgId, self.Anns)
                 pathList, annsList = DETRAC.loadModImages(imgId, self.Anns)
                 for path, ans in zip(pathList, annsList):
                     # imgFile = self.path + "Insight-MVT_Annotation_" + self.set + "/" + path
@@ -152,7 +146,17 @@ class MultiCarDataset:
                     boxList.append(boxes)
                     idBox.append(idBoxes)
                     categorieList.append(categories)
-            return imgs, boxList, categorieList# , pathList, annsList, ids
+
+            begin = 0
+            refDisp1 = []
+            refDisp2 = []
+            while begin + 2 <= self.batch:
+                refd1, refd2 = self.compareID(idBox[begin], idBox[begin+1])
+                refDisp1.append(refd1)
+                refDisp2.append(refd2)
+                begin += 2
+
+            return imgs, boxList, categorieList, refDisp1, refDisp2 # , pathList, annsList, ids
             # refDisp = self.compareID(idBox[0], idBox[1])
             # if len(refDisp[0]) == 0:
             #     continue
@@ -167,7 +171,7 @@ class MultiCarDataset:
         for item in intersection:
             refd1.append(box1[item])
             refd2.append(box2[item])
-        return [refd1, refd2]
+        return refd1, refd2
 
     def count(self):
         return len(self.images)

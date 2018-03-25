@@ -44,12 +44,13 @@ class MultiBoxInceptionResnet(MultiBoxNetwork):
 		with tf.variable_scope(name, reuse=reuse) as scope:
 			self.googleNet = InceptionResnetV2("features", inputs, trainFrom=trainFrom, freezeBatchNorm=freezeBatchNorm)
 			self.scope=scope
-			self.debug_shape = []
 			with tf.variable_scope("Box"):
 				#Pepeat_1 - last 1/16 layer, Mixed_6a - first 1/16 layer
 				scale_16 = self.googleNet.getOutput("Repeat_1")[:,1:-1,1:-1,:]
 				#scale_16 = self.googleNet.getOutput("Mixed_6a")[:,1:-1,1:-1,:]
 				scale_32 = self.googleNet.getOutput("PrePool")
+				# 1/8
+				self.scale_32_2 = self.googleNet.getOutput("Repeat")[:,2:-2,2:-2,:]
 
 				with slim.arg_scope([slim.conv2d],
 						weights_regularizer=slim.l2_regularizer(weightDecay),
@@ -58,12 +59,11 @@ class MultiBoxInceptionResnet(MultiBoxNetwork):
 						activation_fn = tf.nn.relu):
 
 					net = tf.concat([ tf.image.resize_bilinear(scale_32, tf.shape(scale_16)[1:3]), scale_16], 3)
-					self.debug_shape.append(net)
-					rpnInput = slim.conv2d(net, 1024, 1)
+					self.rpnInput = slim.conv2d(net, 1024, 1)
 					
 					#BoxNetwork.__init__(self, nCategories, rpnInput, 16, [32,32], scale_32, 32, [32,32], weightDecay=weightDecay, hardMining=hardMining)
-					featureInput = slim.conv2d(net, 1536, 1)
-					MultiBoxNetwork.__init__(self, nCategories, rpnInput, 16, [32,32], featureInput, 16, [32,32], weightDecay=weightDecay, hardMining=hardMining, batch=batch)
+					self.featureInput = slim.conv2d(net, 1536, 1)
+					MultiBoxNetwork.__init__(self, nCategories, self.rpnInput, 16, [32,32], self.featureInput, 16, [32,32], weightDecay=weightDecay, hardMining=hardMining, batch=batch)
 	
 	def getVariables(self, includeFeatures=False):
 		if includeFeatures:

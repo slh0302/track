@@ -22,7 +22,7 @@ def getCheckpointVarList(file, ignoreClass=False):
 	loadedVars = []
 	for v in reader.get_variable_to_shape_map().keys():
 		if ignoreClass:
-			if 'classMaps' in v:
+			if 'classMaps' in v or 'regressionMaps' in v:
 				continue
 		tfVar = tf.contrib.slim.get_variables_by_name(v)
 		tfVarFitlered=[]

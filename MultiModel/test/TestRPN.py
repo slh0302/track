@@ -39,7 +39,7 @@ def initGlobalVars():
 
 batch =2
 # code write by su
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "5"
 # categories = ["background", "others", "car", "van", "bus"]
 categories = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter',
  'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase',
@@ -65,9 +65,13 @@ imageName = list(testSet.keys()) #.tolist()
 total =  len(imageName)
 begin = 0
 runTestNum = total if total < 120 else 120
-# config = tf.ConfigProto()
-# config.gpu_options.allow_growth = True
-with tf.Session() as sess:
+
+# img = cv2.imread("/home/slh/y00221.jpg")
+# # cv2.imwrite("/home/slh/y00221_1.jpg", img)
+# img2 = cv2.imread("/home/slh/x00221.jpg")
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+with tf.Session(config=config) as sess:
     if not loadCheckpoint(sess, None, "../model/model_old_hard_80/model_32000", ignoreVarsInFileNotInSess=True):
         print("Failed to load network.")
         sys.exit(-1)
@@ -75,35 +79,37 @@ with tf.Session() as sess:
     # initGlobalVars()
     # net.importWeights(sess, "/home/slh/tf-project/track/save/model_1/inception_resnet_v2_2016_08_30.ckpt")
 
-    while begin < runTestNum:
-        imList = []
-        resultList = []
-        for i in range(batch):
-            name = imageName[begin + i]
-            resultList.append(name)
-            img1 = cv2.imread("/home/slh/dataset/ai/VOCdevkit_2CLS/VOC2007/JPEGImages/" + name + ".jpg")
-            if img1 is None:
-                continue
-            img = preprocessInput(img1)
-            imList.append(img)
-        begin += batch
-        rBoxes, rScores, rClasses = sess.run([boxes, scores, classes], feed_dict={image: imList})
-        for im, rB, rC, rS, imname in zip(imList, rBoxes, rClasses, rScores, resultList):
-            res = drawBoxes(im, rB, rC, [categories[i] for i in rC.tolist()], palette, scores=rS)
-            cv2.imwrite("./imgs/"+ imname + ".jpg", res)
-
-    # while True:
-    #     img = cv2.imread("/home/slh/dataset/ai/VOCdevkit_2CLS/VOC2007/JPEGImages/" + imageName[100] + ".jpg")
-    #     img2 = cv2.imread("/home/slh/dataset/ai/VOCdevkit_2CLS/VOC2007/JPEGImages/" + imageName[101] + ".jpg")
-    #     if img is None:
-    #         break
-    #
-    #     img = preprocessInput(img)
-    #     img2 = preprocessInput(img2)
-    #     picture = [img, img2]
-    #
-    #     rBoxes, rScores, rClasses = sess.run([boxes, scores, classes], feed_dict={image: picture})
-    #     for im, rB, rC, rS, i in zip(picture, rBoxes, rClasses, rScores, range(2)):
+    # while begin < runTestNum:
+    #     imList = []
+    #     resultList = []
+    #     for i in range(batch):
+    #         name = imageName[begin + i]
+    #         resultList.append(name)
+    #         img1 = cv2.imread("/home/slh/dataset/ai/VOCdevkit_2CLS/VOC2007/JPEGImages/" + name + ".jpg")
+    #         if img1 is None:
+    #             continue
+    #         img = preprocessInput(img1)
+    #         imList.append(img)
+    #     begin += batch
+    #     rBoxes, rScores, rClasses = sess.run([boxes, scores, classes], feed_dict={image: imList})
+    #     for im, rB, rC, rS, imname in zip(imList, rBoxes, rClasses, rScores, resultList):
     #         res = drawBoxes(im, rB, rC, [categories[i] for i in rC.tolist()], palette, scores=rS)
-    #         cv2.imwrite("./model_single_mod12111" + str(i) + ".jpg", res)
-    #     break
+    #         cv2.imwrite("./imgs/"+ imname + ".jpg", res)
+
+    while True:
+        img = cv2.imread("/home/slh/y00221.jpg")
+        img2 = cv2.imread("/home/slh/x00221.jpg")
+        # img = cv2.imread("/home/slh/dataset/ai/VOCdevkit_2CLS/VOC2007/JPEGImages/" + imageName[100] + ".jpg")
+        # img2 = cv2.imread("/home/slh/dataset/ai/VOCdevkit_2CLS/VOC2007/JPEGImages/" + imageName[101] + ".jpg")
+        if img is None:
+            break
+
+        img = preprocessInput(img)
+        img2 = preprocessInput(img2)
+        picture = [img, img2]
+
+        rBoxes, rScores, rClasses = sess.run([boxes, scores, classes], feed_dict={image: picture})
+        for im, rB, rC, rS, i in zip(picture, rBoxes, rClasses, rScores, range(2)):
+            res = drawBoxes(im, rB, rC, [categories[i] for i in rC.tolist()], palette, scores=rS)
+            cv2.imwrite("./test_flow" + str(i) + ".jpg", res)
+        break

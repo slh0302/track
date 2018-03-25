@@ -243,6 +243,11 @@ def voc_eval_one(detpath,
             fp[d] = 1.
 
     # compute precision recall
+    fp1 = np.sum(fp)
+    tp1 = np.sum(tp)
+    recall = tp1 / float(npos)
+    precs = tp1 / (tp1 + fp1)
+
     fp = np.cumsum(fp)
     tp = np.cumsum(tp)
     rec = tp / float(npos)
@@ -251,4 +256,4 @@ def voc_eval_one(detpath,
     prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
     ap = voc_ap(rec, prec, use_07_metric)
 
-    return rec, prec, ap
+    return recall, precs, ap

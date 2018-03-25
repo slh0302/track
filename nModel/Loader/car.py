@@ -21,6 +21,7 @@ import cv2
 import tensorflow as tf
 from datasets.process import BoxAwareRandZoom
 from datasets.process import DETRAC
+import pickle
 
 class CarDataset:
     def __init__(self, path, set="train", normalizeSize=True, randomZoom=False):
@@ -30,11 +31,14 @@ class CarDataset:
         self.set = set
         self.randomZoom = randomZoom
         # self.caption = {"others":2, "car":2, "van":7, "bus":5}
-        self.caption = {"others": 0, "car": 1, "van": 2, "bus": 3}
+        self.caption = {"others": 1, "car": 2, "van": 3, "bus": 4}
 
     def init(self):
-        self.bbox, self.Anns = DETRAC.FetchAll(self.path + "DETRAC-Train-Annotations-XML/list",
-                                               self.path + "DETRAC-Train-Annotations-XML/")
+        # self.bbox, self.Anns = DETRAC.FetchAll(self.path + "DETRAC-Train-Annotations-XML/list",
+        #                                        self.path + "DETRAC-Train-Annotations-XML/")
+        f = open("/home/slh/tf-project/track/MultiModel/TFRecord/TrainAns.pkl", 'rb')
+        self.Anns = pickle.load(f)
+        f.close()
         self.images = list(self.Anns.keys())
         print("Loaded " + str(len(self.images)) + " images")
 
@@ -142,16 +146,12 @@ class CarDataset:
     def load(self):
         while True:
             imgId = self.images[random.randint(0, len(self.images) - 1)]
-            imgs = []
-            boxList = []
-            idBox = []
-            categorieList = []
             # for
-            pathList, annsList = DETRAC.loadImages(imgId, self.Anns)
+            pathList, annsList = DETRAC.loadModImages(imgId, self.Anns)
             path = pathList[0]
             ans = annsList[0]
 
-            imgFile = self.path + "Insight-MVT_Annotation_" + self.set + "/" + path
+            imgFile = "/home/slh/dataset/ai/VOCdevkit_2CLS/VOC2007/JPEGImages/" + path
             img = cv2.imread(imgFile)
 
             if img is None:
@@ -170,11 +170,11 @@ class CarDataset:
                 continue
 
             iBoxes = [{
-                "x": int(self.bbox[i][0]),
-                "y": int(self.bbox[i][1]),
-                "w": int(self.bbox[i][2]),
-                "h": int(self.bbox[i][3]),
-                "id": int(self.bbox[i][4])
+                "x": int(i[0]),
+                "y": int(i[1]),
+                "w": int(i[2]),
+                "h": int(i[3]),
+                "id": int(i[4])
             } for i in instances]
 
             if self.randomZoom:
@@ -216,7 +216,7 @@ class CarDataset:
                 if (newBox[2] - newBox[0]) >= 16 and (newBox[3] - newBox[1]) >= 16:
                     boxes.append(newBox)
                     idBoxes[iBoxes[i]["id"]] = newBox
-                    categories.append(self.caption[self.bbox[instances[i]][-1]])
+                    categories.append(self.caption[instances[i][-1]])
 
             if len(boxes) == 0:
                 print("Warning: No boxes on image. Skipping.")

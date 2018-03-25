@@ -42,7 +42,8 @@ class MultiBoxRefinementNetwork:
 
 		# self.number = number
 		#Magic parameters.
-		self.posIouTheshold = 0.5
+		# changes
+		self.posIouTheshold = 0.6
 		self.negIouThesholdHi = 0.5
 		self.negIouThesholdLo = 0.1
 		self.nTrainBoxes = 128
@@ -64,8 +65,9 @@ class MultiBoxRefinementNetwork:
 		with tf.name_scope("classRefinementLoss"):
 			netScores = self.getBoxScores(boxes, number)
 			refOnehot = tf.one_hot(refs, self.nCategories+1, on_value=1.0 - self.nCategories*self.falseValue, off_value=self.falseValue)
-		
-			return tf.nn.softmax_cross_entropy_with_logits(logits=netScores, labels=refOnehot)
+			# Testing TODO
+			scores = tf.nn.softmax(netScores)
+			return tf.nn.softmax_cross_entropy_with_logits(logits=netScores, labels=refOnehot), scores, refOnehot
 
 	def refineBoxes(self, boxes, needSizes, number):
 		with tf.name_scope("refineBoxes"):
@@ -96,9 +98,11 @@ class MultiBoxRefinementNetwork:
 			return Loss.boxRegressionLoss(refinedBoxes, rawSizes, refBoxes, refSizes), refinedBoxes
 
 	def loss(self, proposals, refBoxes, refClasses, number):
+		totalBox = []
+		result = []
 		with tf.name_scope("BoxRefinementNetworkLoss"):
 			tmp = []
-			totalBox = []
+
 			for item in proposals:
 				tmp.append(tf.stop_gradient(item))
 			proposals = tmp
@@ -115,10 +119,13 @@ class MultiBoxRefinementNetwork:
 						positiveBoxes, positiveClasses, positiveRefBoxes = \
 							MultiGather.gather([positiveBoxes, positiveClasses, positiveRefBoxes], selected)
 
+					clsLoss, scores, refhot = self.classRefinementLoss(positiveBoxes, positiveClasses, number)
 					boxLoss, boxes = self.boxRefinementLoss(positiveBoxes, positiveRefBoxes, number)
 					totalBox.append(boxes)
-					return tf.tuple([self.classRefinementLoss(positiveBoxes, positiveClasses, number) +
-									 boxLoss, tf.shape(positiveBoxes)[0]])
+					# totalBox.append(scores)
+					# totalBox.append(refhot)
+					# refClass.append(positiveClasses)
+					return tf.tuple([ clsLoss + boxLoss, tf.shape(positiveBoxes)[0]])
 
 			def getNegLoss(negativeBoxes, nNegative, number):
 				with tf.name_scope("getNetLoss"):
@@ -126,7 +133,10 @@ class MultiBoxRefinementNetwork:
 						negativeIndices = basic.RandomSelect.randomSelectIndex(tf.shape(negativeBoxes)[0], nNegative)
 						negativeBoxes = tf.gather_nd(negativeBoxes, negativeIndices)
 
-					return self.classRefinementLoss(negativeBoxes, tf.zeros(tf.stack([tf.shape(negativeBoxes)[0],1]), dtype=tf.uint8), number)
+					clsLoss, scores, refhot = self.classRefinementLoss(negativeBoxes,
+											 tf.zeros(tf.stack([tf.shape(negativeBoxes)[0], 1]), dtype=tf.uint8),
+											 number)
+					return clsLoss
 
 			def returnNullLoss(number):
 				return tf.tuple([tf.constant(0.0, tf.float32), tf.constant(0, tf.int32)]), tf.constant([[0.0, 0.0, 0.0, 0.0]])
@@ -135,6 +145,7 @@ class MultiBoxRefinementNetwork:
 				with tf.name_scope("getRefinementLoss"):
 					boxList, clsList = tf.unstack(refBoxes,axis=0), tf.unstack(refClasses,axis=0)
 					totalLoss = []
+
 					for pro, bx, cls, nm in zip(proposals, boxList, clsList, range(self.batch)):
 						tm = tf.range(number[nm], dtype=tf.int32)
 						bx = tf.gather(bx, tm)
@@ -152,7 +163,7 @@ class MultiBoxRefinementNetwork:
 						#Split the boxes and references
 						posBoxes, posRefIndices = MultiGather.gather([pro, bestIou], posBoxIndices)
 						negBoxes = tf.gather_nd(pro, negBoxIndices)
-
+						result.append(posBoxes)
 						#Add GT boxes
 						posBoxes = tf.concat([posBoxes,bx], 0)
 						posRefIndices = tf.concat([posRefIndices, tf.reshape(tf.range(tf.shape(cls)[0]), [-1,1])], 0)
@@ -160,7 +171,7 @@ class MultiBoxRefinementNetwork:
 						#Call the loss if the box collection is not empty
 						nPositive = tf.shape(posBoxes)[0]
 						nNegative = tf.shape(negBoxes)[0]
-
+						# result.append(posBoxes)
 						tmp_number = tf.cast(number[nm], dtype=tf.float32)
 						if self.hardMining:
 							posLoss = tf.cond(nPositive > 0,
@@ -204,11 +215,9 @@ class MultiBoxRefinementNetwork:
 			clsRes = []
 			for pro, nm in zip(proposals, range(self.batch)):
 				scores = tf.nn.softmax(self.getBoxScores(pro, nm))
-
 				classes = tf.argmax(scores, 1)
 				scores = tf.reduce_max(scores, axis=1)
 				posIndices = tf.cast(tf.where(tf.logical_and(classes > 0, scores>scoreThreshold)), tf.int32)
-
 				positives, scores, classes = MultiGather.gather([pro, scores, classes], posIndices)
 				positives = self.refineBoxes(positives, False, nm)
 

@@ -4,8 +4,10 @@ nModel/logs/
 nModel/logs_old/
 nModel/logs_train_0/
 nModel/logs_train_1/
+nModel/logs_same/
 nModel/model/
 MultiModel/model/
+MultiModel/test/logs/
 MultiModel/logs/
 MultiModel/test/imgs/
 MultiModel/test/output/

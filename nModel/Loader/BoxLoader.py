@@ -22,7 +22,7 @@ import time
 import numpy as np
 
 class BoxLoader:
-	QUEUE_CAPACITY=16
+	QUEUE_CAPACITY=8
 
 	def __init__(self, sources=[], initOnStart=True):
 		self.totalCount = 0

@@ -57,29 +57,36 @@ def initGlobalVars():
 
 
 # code write by su
-batch = 8
-TEST_SET = 'TestAns.pkl'
-TEST_NUMBER = 500000
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
-# categories = ["__background__","others", "car", "van", "bus"]
-categories = ['__background__', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat',
-              'traffic light', 'fire hydrant', 'stop sign', 'parking meter',
-              'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe',
-              'backpack', 'umbrella', 'handbag', 'tie', 'suitcase',
-              'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard',
-              'surfboard', 'tennis racket', 'bottle', 'wine glass',
-              'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot',
-              'hot dog', 'pizza', 'donut', 'cake', 'chair',
-              'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard',
-              'cell phone', 'microwave', 'oven', 'toaster',
-              'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush']
+batch = 4
+TEST_SET = 'TrainAns.pkl'
+TEST_MODEL = '/home/slh/tf-project/track/MultiModel/model/single/oldEnd2Train/model_60000'
+TEST_NUMBER = 120
+os.environ["CUDA_VISIBLE_DEVICES"] = "9"
+numClass = 1
+
+if numClass ==4 :
+    categories = ["__background__","others", "car", "van", "bus"]
+elif numClass == 1:
+    categories = ["__background__", "car"]
+else:
+    categories = ['__background__', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat',
+                  'traffic light', 'fire hydrant', 'stop sign', 'parking meter',
+                  'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe',
+                  'backpack', 'umbrella', 'handbag', 'tie', 'suitcase',
+                  'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard',
+                  'surfboard', 'tennis racket', 'bottle', 'wine glass',
+                  'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot',
+                  'hot dog', 'pizza', 'donut', 'cake', 'chair',
+                  'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard',
+                  'cell phone', 'microwave', 'oven', 'toaster',
+                  'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush']
 
 beginTime = datetime.datetime.now()
-
+print("class Number:", len(categories) -1 )
 # begin testing
 image = tf.placeholder(tf.float32, [None, None, None, 3])
 net = MultiBoxInceptionResnet(image, len(categories) - 1, name="boxnet", batch=batch)
-boxes, scores, classes = net.getBoxes(scoreThreshold=0.6)
+boxes, scores, classes, result = net.getBoxes(scoreThreshold=0.5)
 categorieOut = ["__background__", "car"]
 boxesRes = {"__background__": {}}
 for Class in categorieOut:
@@ -103,7 +110,7 @@ pad = 5
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 with tf.Session(config=config) as sess:
-    if not loadCheckpoint(sess, None, "../model/model_old_hard_80/model_32000", ignoreVarsInFileNotInSess=True):
+    if not loadCheckpoint(sess, None, TEST_MODEL, ignoreVarsInFileNotInSess=True):
         print("Failed to load network.")
         sys.exit(-1)
 
@@ -130,7 +137,9 @@ with tf.Session(config=config) as sess:
         if begin % 1200 == 0:
             print("Test Done: ", begin)
 
-        rBoxes, rScores, rClasses = sess.run([boxes, scores, classes], feed_dict={image: imList})
+        rBoxes, rScores, rClasses, pros, pro_score, resc, classMaps = sess.run([boxes, scores, classes,
+                                                                     net.proposals, net.proposalScores,
+                                                                     result, net.boxRefiner.classMaps], feed_dict={image: imList})
         for im, imName, rB, rC, rS, i, par, sList in zip(imList, resultList, rBoxes, rClasses, rScores, range(batch),
                                                          param, sizeList):
             item = {}
@@ -143,6 +152,8 @@ with tf.Session(config=config) as sess:
                     boxesRes['car'][imName].append(boxCoord + [float(sc)])
                 else:
                     boxesRes['car'][imName] = [boxCoord + [float(sc)]]
+
+sess.close()
 
 print("total_run: ", begin)
 eva = eval(categorieOut, "/home/slh/tf-project/track/MultiModel/TFRecord", "test")
