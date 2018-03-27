@@ -35,17 +35,22 @@ class MultiBoxRefinementNetwork:
 		self.regressionMap = slim.conv2d(input, (self.POOL_SIZE**2)*4, 3, activation_fn=None, scope='regressionMaps',reuse=self.reuse)
 
 		self.batch = batch
-		self.classMapsSplit = tf.split(self.classMaps, self.batch, axis=0)
-		self.regressionMapSplit = tf.split(self.regressionMap, self.batch, axis=0)
+		if not self.batch == 1:
+			self.classMapsSplit = tf.split(self.classMaps, self.batch, axis=0)
+			self.regressionMapSplit = tf.split(self.regressionMap, self.batch, axis=0)
+		else:
+			self.classMapsSplit = [self.classMaps]
+			self.regressionMapSplit = [self.regressionMap]
 
 		self.hardMining=hardMining
 
 		# self.number = number
 		#Magic parameters.
-		# changes
-		self.posIouTheshold = 0.6
-		self.negIouThesholdHi = 0.5
+		# changes TODO
+		self.posIouTheshold = 0.7
+		self.negIouThesholdHi = 0.3
 		self.negIouThesholdLo = 0.1
+
 		self.nTrainBoxes = 128
 		self.nTrainPositives = 32
 		self.falseValue = 0.0002

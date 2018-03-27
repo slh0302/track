@@ -10,18 +10,18 @@ import tensorflow as tf
 import sys
 import os
 
-log_dir = "track/reoldEnd2/"
-model_dir = "track/reoldEnd2/"
+log_dir = "track/newOldEnd2/"
+model_dir = "track/newOldEnd2/"
 NumClasses = 1
 trainFrom=None
-learning_rate = 0.0001
+learning_rate = 0.001
 batch = 8
 LoadOld=True
 ignoreClass=True
 staircase=True
 opts="sgd"
-modelToLoad = "/home/slh/tf-project/track/save/model_3/model"
-os.environ["CUDA_VISIBLE_DEVICES"] = "8"
+modelToLoad = "../../save/model_3/model"
+os.environ["CUDA_VISIBLE_DEVICES"] = "14"
 
 # def test_Block():
 #
@@ -44,7 +44,7 @@ with tf.Graph().as_default() as graph:
     decay_steps = int((dataset.count() / (batch * 2 * 1)) * num_epoch_for_decay)
     learning_rate = tf.train.exponential_decay(learning_rate,
                                                global_step=globalStep,
-                                               decay_steps=decay_steps, decay_rate=0.8, staircase=True)
+                                               decay_steps=decay_steps, decay_rate=0.8, staircase=staircase)
 
     def createUpdateOp(net, gradClip=1):
         with tf.name_scope("optimizer"):

@@ -9,12 +9,12 @@ import tensorflow as tf
 import sys
 import os
 
-log_dir = "single/reOldEnd2/"
-model_dir = "single/reOldEnd2/"
+log_dir = "single/reOld9_2/"
+model_dir = "single/reOld9_2/"
 NumClasses = 1
-trainFrom=None
-learning_rate = 0.00001
-batch = 8
+trainFrom=7
+learning_rate = 0.001
+batch = 4
 LoadOld=True
 ignoreClass=True
 staircase=True

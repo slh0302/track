@@ -58,10 +58,10 @@ def initGlobalVars():
 
 # code write by su
 batch = 4
-TEST_SET = 'TrainAns.pkl'
-TEST_MODEL = '/home/slh/tf-project/track/MultiModel/model/single/oldEnd2Train/model_60000'
-TEST_NUMBER = 120
-os.environ["CUDA_VISIBLE_DEVICES"] = "9"
+TEST_SET = 'TestAns.pkl'
+TEST_MODEL = '/home/slh/tf-project/track/MultiModel/model/single/reOld9_2/model_19400'
+TEST_NUMBER = 500000
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 numClass = 1
 
 if numClass ==4 :
@@ -86,7 +86,7 @@ print("class Number:", len(categories) -1 )
 # begin testing
 image = tf.placeholder(tf.float32, [None, None, None, 3])
 net = MultiBoxInceptionResnet(image, len(categories) - 1, name="boxnet", batch=batch)
-boxes, scores, classes, result = net.getBoxes(scoreThreshold=0.5)
+boxes, scores, classes = net.getBoxes(scoreThreshold=0.5)
 categorieOut = ["__background__", "car"]
 boxesRes = {"__background__": {}}
 for Class in categorieOut:
@@ -137,21 +137,24 @@ with tf.Session(config=config) as sess:
         if begin % 1200 == 0:
             print("Test Done: ", begin)
 
-        rBoxes, rScores, rClasses, pros, pro_score, resc, classMaps = sess.run([boxes, scores, classes,
-                                                                     net.proposals, net.proposalScores,
-                                                                     result, net.boxRefiner.classMaps], feed_dict={image: imList})
+        rBoxes, rScores, rClasses = sess.run([boxes, scores, classes], feed_dict={image: imList})
         for im, imName, rB, rC, rS, i, par, sList in zip(imList, resultList, rBoxes, rClasses, rScores, range(batch),
                                                          param, sizeList):
             item = {}
             for bx, sc, cls in zip(rB, rS, rC):
                 cls += 1
                 sc = "%.2f" % sc
-
+                # """ out put """
+                # cv2.rectangle(im, tuple(clipCoord(bx[0:2],im)), tuple(clipCoord(bx[2:4],im)), (255, 255, 0), thickness=4)
+                # textpos = [int(bx[0]), int(bx[1] - pad)]
+                # cv2.putText(im, categories[cls] + " : " + str(sc), tuple(textpos), font, fontSize, (255, 0, 0), thickness=fontThickness)
+                # """   end   """
                 boxCoord = originCoord(bx[0], bx[1], bx[2], bx[3], par[0], par[1], par[2], sList)
                 if imName in boxesRes['car'].keys():
                     boxesRes['car'][imName].append(boxCoord + [float(sc)])
                 else:
                     boxesRes['car'][imName] = [boxCoord + [float(sc)]]
+            # cv2.imwrite("/home/slh/tf-project/track/MultiModel/test/imgs/"+imName+".jpg", im)
 
 sess.close()
 

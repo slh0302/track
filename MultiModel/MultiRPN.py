@@ -39,6 +39,7 @@ class MultiRPN:
 
         self.nAnchors = len(self.anchors)
 
+        # modify
         self.positiveIouThreshold = 0.7
         self.negativeIouThreshold = 0.3
         self.regressionWeight = 1.0

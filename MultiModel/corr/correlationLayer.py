@@ -13,7 +13,7 @@ class CorrelationNet:
         self.inputDownScale = inputDownscale
         self.offset = offset
         self.max_displacement = max_displacement
-        self.posIouTheshold = 0.5
+        self.posIouTheshold = 0.7
         self.batch = batch
         self.reuse = reuse
         assert self.batch % 2 == 0
@@ -95,31 +95,13 @@ class CorrelationNet:
         loss = smooth_l1(x - delta_x) + smooth_l1(y - delta_y) + smooth_l1(w - delta_w) + smooth_l1(h - delta_h)
         return tf.reduce_mean(loss)
 
-    def getRefineBox(self, proposals, needSizes):
-        with tf.name_scope("trackingBoxes"):
-            proposals_bboxs = self.roiMean(self.corr_feature, proposals)
-            # fetch new data
-            x, y, w, h = BoxUtils.x0y0x1y1_to_xywh(*tf.unstack(proposals, axis=1))
-            x_rel, y_rel, w_rel, h_rel = tf.unstack(proposals_bboxs, axis=1)
-
-            if needSizes:
-                refSizes = tf.stack([h, w], axis=1)
-
-            x = x + x_rel * w
-            y = y + y_rel * h
-
-            w = w * tf.exp(w_rel)
-            h = h * tf.exp(h_rel)
-
-            refinedBoxes = tf.stack(BoxUtils.xywh_to_x0y0x1y1(x, y, w, h), axis=1)
-
-            if needSizes:
-                return refinedBoxes, refSizes, proposals_bboxs[:, 2:4]
-            else:
-                return refinedBoxes
 
     def getDisplacement(self, proposals):
         # proposals is first out in BoxregNet
-        positives = self.roiMean(self.corr_feature, proposals)
+        Disp = []
+        proposals = tf.unstack(proposals, axis=0)
+        for pros, nm in zip(proposals, range(int(self.batch/2))):
+            positives = self.roiMean(self.splitFeature[nm], pros)
+            Disp.append(positives)
         # fetch new data
-        return positives
+        return Disp
